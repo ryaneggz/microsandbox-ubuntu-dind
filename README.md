@@ -11,9 +11,9 @@ Released images are published to `ghcr.io/ryaneggz/microsandbox-ubuntu-dind`.
 # The repository is private, so authenticate first.
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u ryaneggz --password-stdin
 
-# Pull a released version (or :latest, :1, :1.2).
-docker pull ghcr.io/ryaneggz/microsandbox-ubuntu-dind:1.0.0
-docker tag ghcr.io/ryaneggz/microsandbox-ubuntu-dind:1.0.0 prod-msb-ubuntu:26.04
+# Pull a released version (or :latest, :0, :0.1).
+docker pull ghcr.io/ryaneggz/microsandbox-ubuntu-dind:0.1.0
+docker tag ghcr.io/ryaneggz/microsandbox-ubuntu-dind:0.1.0 prod-msb-ubuntu:26.04
 
 # Hand it to Microsandbox's image store.
 docker save -o prod-msb-ubuntu-26.04.tar prod-msb-ubuntu:26.04
@@ -29,12 +29,12 @@ The token needs the `read:packages` scope. Images are published for
 Releases are SemVer, cut by GitHub Actions from a tag:
 
 ```sh
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 `.github/workflows/release.yml` builds both architectures, pushes
-`1.0.0`, `1.0`, `1`, and `latest` to GHCR, and creates the GitHub Release.
+`0.1.0`, `0.1`, `0`, and `latest` to GHCR, and creates the GitHub Release.
 A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 `workflow_dispatch` accepts a version if you need to re-run one by hand.
 
