@@ -1,19 +1,19 @@
-# msb-starter
+# microsandbox-ubuntu-dind
 
 Ubuntu 26.04 Microsandbox image with Docker-in-Docker, plus a `prod.sh` launcher.
 Precursor to how openharness-cloud provisions an Ubuntu MSB VM with DinD.
 
 ## Pull from GHCR (no build)
 
-Released images are published to `ghcr.io/ryaneggz/msb-starter`.
+Released images are published to `ghcr.io/ryaneggz/microsandbox-ubuntu-dind`.
 
 ```sh
 # The repository is private, so authenticate first.
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u ryaneggz --password-stdin
 
 # Pull a released version (or :latest, :1, :1.2).
-docker pull ghcr.io/ryaneggz/msb-starter:1.0.0
-docker tag ghcr.io/ryaneggz/msb-starter:1.0.0 prod-msb-ubuntu:26.04
+docker pull ghcr.io/ryaneggz/microsandbox-ubuntu-dind:1.0.0
+docker tag ghcr.io/ryaneggz/microsandbox-ubuntu-dind:1.0.0 prod-msb-ubuntu:26.04
 
 # Hand it to Microsandbox's image store.
 docker save -o prod-msb-ubuntu-26.04.tar prod-msb-ubuntu:26.04
