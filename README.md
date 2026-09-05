@@ -8,9 +8,6 @@ Precursor to how openharness-cloud provisions an Ubuntu MSB VM with DinD.
 Released images are published to `ghcr.io/ryaneggz/microsandbox-ubuntu-dind`.
 
 ```sh
-# The repository is private, so authenticate first.
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u ryaneggz --password-stdin
-
 # Pull a released version (or :latest, :0, :0.1).
 docker pull ghcr.io/ryaneggz/microsandbox-ubuntu-dind:0.1.0
 docker tag ghcr.io/ryaneggz/microsandbox-ubuntu-dind:0.1.0 prod-msb-ubuntu:26.04
@@ -21,7 +18,7 @@ msb load --input prod-msb-ubuntu-26.04.tar
 rm prod-msb-ubuntu-26.04.tar
 ```
 
-The token needs the `read:packages` scope. Images are published for
+No authentication is needed once the package is public. Images are published for
 `linux/amd64` and `linux/arm64`.
 
 ## Releasing
