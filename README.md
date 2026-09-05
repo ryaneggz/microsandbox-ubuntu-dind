@@ -83,7 +83,24 @@ msb exec prod -- docker compose version
 msb exec prod -- docker run --rm hello-world
 ```
 
-Test the SSH route from localhost afterward:
+## SSH access
+
+Microsandbox can serve SSH for a sandbox over stdio, so a workstation can reach
+`prod` through the host that runs it. Add an entry like this to `~/.ssh/config`:
+
+```sshconfig
+Host prod-msb
+    User root
+    IdentityFile ~/.ssh/<your-key>
+    IdentitiesOnly yes
+    ProxyCommand ssh <your-msb-host> /home/<user>/.local/bin/msb ssh serve prod --stdio
+```
+
+- `<your-msb-host>` is an existing `Host` entry for the machine running `msb`.
+- Adjust the `msb` path if it is installed somewhere else on that machine.
+- The same entry works as a VS Code Remote-SSH target.
+
+Test the route from your workstation after the sandbox is running:
 
 ```sh
 ssh prod-msb
