@@ -9,7 +9,7 @@ if [ -f .env ]; then
   set +a
 fi
 
-IMAGE_REPO="${IMAGE_REPO:-ghcr.io/ryaneggz/microsandbox-ubuntu-dind}"
+IMAGE_REPO="${IMAGE_REPO:-ghcr.io/ryaneggz/msb-ubuntu-dind}"
 IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 IMAGE="$IMAGE_REPO:$IMAGE_VERSION"
 

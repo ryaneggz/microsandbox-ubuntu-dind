@@ -16,7 +16,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}
+  IMAGE: ghcr.io/${{ github.repository_owner }}/msb-ubuntu-dind
 
 jobs:
   release:

@@ -1,5 +1,7 @@
 # microsandbox-ubuntu-dind
 
+Published as `ghcr.io/ryaneggz/msb-ubuntu-dind`.
+
 Ubuntu 26.04 Microsandbox image with Docker-in-Docker, plus a `prod.sh` launcher.
 Ships an unprivileged `dev` user (uid 1000) in the `docker` group, so `docker`
 needs no `sudo`.
@@ -30,7 +32,7 @@ IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash prod.sh
 Image fetching prefers `msb pull`, and falls back to `docker pull` +
 `docker save` + `msb load` on Microsandbox versions that cannot pull from a
 registry. Images are published for `linux/amd64` and `linux/arm64` at
-`ghcr.io/ryaneggz/microsandbox-ubuntu-dind`.
+`ghcr.io/ryaneggz/msb-ubuntu-dind`.
 
 ## Attach
 
@@ -141,12 +143,12 @@ IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash prod.sh
 Releases are SemVer, cut by GitHub Actions from a tag:
 
 ```sh
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
 `.github/workflows/release.yml` builds both architectures, pushes
-`0.3.0`, `0.3`, `0`, and `latest` to GHCR, and creates the GitHub Release.
+`0.4.0`, `0.4`, `0`, and `latest` to GHCR, and creates the GitHub Release.
 A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 `workflow_dispatch` accepts a version if you need to re-run one by hand.
 
