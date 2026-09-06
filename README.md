@@ -11,11 +11,11 @@ Precursor to how openharness-cloud provisions an Ubuntu MSB VM with DinD.
 have it, then starts the `prod` sandbox:
 
 ```sh
-cp .env.example .env   # optional; edit to taste
+cp .example.env .env   # optional; edit to taste
 bash prod.sh
 ```
 
-Every setting lives in `.env.example` — image, sandbox name, CPUs, memory,
+Every setting lives in `.example.env` — image, sandbox name, CPUs, memory,
 disks, mounts, ports. `prod.sh` sources `.env` when present, and the same names
 work as plain environment variables. `IMAGE_VERSION` defaults to `latest`.
 
@@ -155,6 +155,6 @@ A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 - `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user.
 - `entrypoint.sh` — keeps `/home/dev` and its mount points owned by `dev`, then execs the command (`dockerd` by default).
 - `prod.sh` — fetches the published image if needed, then runs `msb run`; commented lifecycle, resize, and monitoring recipes follow.
-- `.env.example` — every setting `prod.sh` reads; copy to `.env`.
+- `.example.env` — every setting `prod.sh` reads; copy to `.env`.
 - `.github/workflows/release.yml` — tag-driven SemVer build and publish to GHCR.
 - `.github/workflows/ci.yml` — builds the image on every PR and push to `main`.
