@@ -10,11 +10,11 @@ msb run -d \
   --memory 8G \
   --max-memory 16G \
   --root-disk 12G \
-  --mount-dir /opt/infra-stack:/workspace/infra-stack \
-  --mount-dir /opt/oh-deploy:/workspace/oh-deploy \
-  --mount-dir /opt/langfuse:/workspace/langfuse \
+  --mount-dir /opt/infra-stack:/home/dev/infra-stack \
+  --mount-dir /opt/oh-deploy:/home/dev/oh-deploy \
+  --mount-dir /opt/langfuse:/home/dev/langfuse \
   --mount-named prod-docker-data:/var/lib/docker:kind=disk,size=50G \
-  --workdir /workspace \
+  --workdir /home/dev \
   -p 3000:3000 \
   -p 3005:3005 \
   prod-msb-ubuntu:26.04

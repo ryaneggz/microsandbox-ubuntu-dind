@@ -118,7 +118,7 @@ ssh prod-msb
 The Docker daemon still runs as root — `dockerd` needs kernel privileges no
 unprivileged user has — but nothing you do inside the sandbox has to:
 
-- `dev` (uid/gid 1000) owns `/workspace` and belongs to the `docker` group, so
+- `dev` (uid/gid 1000) owns its home directory `/home/dev` and belongs to the `docker` group, so
   `docker`, `docker compose`, and `docker buildx` work without `sudo`.
 - `dev` also has passwordless `sudo` for package installs and other admin work.
 - Override the account at build time with
@@ -131,7 +131,7 @@ msb exec prod -- su - dev
 ```
 
 - `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user.
-- `entrypoint.sh` — keeps `/workspace` owned by `dev`, then execs the command (`dockerd` by default).
+- `entrypoint.sh` — keeps `/home/dev` and its mount points owned by `dev`, then execs the command (`dockerd` by default).
 - `prod.sh` — `msb run` invocation plus commented lifecycle, resize, and monitoring recipes.
 - `.github/workflows/release.yml` — tag-driven SemVer build and publish to GHCR.
 - `.github/workflows/ci.yml` — builds the image on every PR and push to `main`.

@@ -57,13 +57,12 @@ RUN if existing="$(getent passwd "$USER_UID" | cut -d: -f1)" && [ -n "$existing"
     useradd --uid "$USER_UID" --gid "$USER_GID" --create-home --shell /bin/bash "$USERNAME" && \
     usermod --append --groups docker "$USERNAME" && \
     printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$USERNAME" > /etc/sudoers.d/"$USERNAME" && \
-    chmod 0440 /etc/sudoers.d/"$USERNAME" && \
-    install -d -o "$USERNAME" -g "$USERNAME" /workspace
+    chmod 0440 /etc/sudoers.d/"$USERNAME"
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV DOCKER_USER=dev
-WORKDIR /workspace
+WORKDIR /home/dev
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["dockerd"]
