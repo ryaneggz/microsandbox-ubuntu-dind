@@ -16,5 +16,16 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
+          load: true
+          tags: msb-ubuntu-dind:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Image contract
+        run: |
+          set -euxo pipefail
+          docker run --rm msb-ubuntu-dind:ci id dev
+          docker run --rm msb-ubuntu-dind:ci sh -c 'id -nG dev | tr " " "\n" | grep -qx docker'
+          docker run --rm msb-ubuntu-dind:ci sh -c 'command -v telnet'
+          docker run --rm msb-ubuntu-dind:ci sh -c 'command -v dockerd'
+          docker run --rm --user dev msb-ubuntu-dind:ci sh -c 'test "$(id -un)" = dev && stat -c %U .'

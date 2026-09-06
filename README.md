@@ -1,6 +1,8 @@
 # microsandbox-ubuntu-dind
 
 Ubuntu 26.04 Microsandbox image with Docker-in-Docker, plus a `prod.sh` launcher.
+Ships an unprivileged `dev` user (uid 1000) in the `docker` group, so `docker`
+needs no `sudo`.
 Precursor to how openharness-cloud provisions an Ubuntu MSB VM with DinD.
 
 ## Pull from GHCR (no build)
@@ -69,6 +71,10 @@ bash prod.sh
 # Confirm Ubuntu 26.04.
 msb exec prod -- cat /etc/os-release
 
+# Confirm the unprivileged user can reach Docker without sudo.
+msb exec prod -- su - dev -c 'docker info'
+msb exec prod -- su - dev -c 'docker run --rm hello-world'
+
 # Confirm Docker daemon is running.
 msb exec prod -- docker info
 
@@ -87,13 +93,15 @@ Microsandbox can serve SSH for a sandbox over stdio, so a workstation can reach
 
 ```sshconfig
 Host prod-msb
-    User root
+    User dev
     IdentityFile ~/.ssh/<your-key>
     IdentitiesOnly yes
     ProxyCommand ssh <your-msb-host> /home/<user>/.local/bin/msb ssh serve prod --stdio
 ```
 
 - `<your-msb-host>` is an existing `Host` entry for the machine running `msb`.
+- `User dev` is the unprivileged account in the image. Use `root` only if
+  `msb ssh serve` does not honour a non-root user on your Microsandbox version.
 - Adjust the `msb` path if it is installed somewhere else on that machine.
 - The same entry works as a VS Code Remote-SSH target.
 
@@ -105,7 +113,25 @@ ssh prod-msb
 
 ## Files
 
-- `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx.
+## Users and privileges
+
+The Docker daemon still runs as root — `dockerd` needs kernel privileges no
+unprivileged user has — but nothing you do inside the sandbox has to:
+
+- `dev` (uid/gid 1000) owns `/workspace` and belongs to the `docker` group, so
+  `docker`, `docker compose`, and `docker buildx` work without `sudo`.
+- `dev` also has passwordless `sudo` for package installs and other admin work.
+- Override the account at build time with
+  `--build-arg USERNAME=... --build-arg USER_UID=... --build-arg USER_GID=...`.
+
+Run a shell as that user:
+
+```sh
+msb exec prod -- su - dev
+```
+
+- `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user.
+- `entrypoint.sh` — keeps `/workspace` owned by `dev`, then execs the command (`dockerd` by default).
 - `prod.sh` — `msb run` invocation plus commented lifecycle, resize, and monitoring recipes.
 - `.github/workflows/release.yml` — tag-driven SemVer build and publish to GHCR.
 - `.github/workflows/ci.yml` — builds the image on every PR and push to `main`.

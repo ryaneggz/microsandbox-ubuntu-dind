@@ -16,7 +16,9 @@ RUN apt-get update && \
       libstdc++6 \
       openssh-client \
       procps \
+      sudo \
       tar \
+      inetutils-telnet \
       xz-utils && \
     rm -rf /var/lib/apt/lists/*
 
@@ -44,6 +46,24 @@ RUN apt-get update && \
       docker-compose-plugin && \
     rm -rf /var/lib/apt/lists/*
 
+# Unprivileged default user with direct access to the Docker socket.
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN if existing="$(getent passwd "$USER_UID" | cut -d: -f1)" && [ -n "$existing" ]; then \
+      userdel --remove "$existing"; \
+    fi && \
+    groupadd --gid "$USER_GID" "$USERNAME" && \
+    useradd --uid "$USER_UID" --gid "$USER_GID" --create-home --shell /bin/bash "$USERNAME" && \
+    usermod --append --groups docker "$USERNAME" && \
+    printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$USERNAME" > /etc/sudoers.d/"$USERNAME" && \
+    chmod 0440 /etc/sudoers.d/"$USERNAME" && \
+    install -d -o "$USERNAME" -g "$USERNAME" /workspace
+
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
+
+ENV DOCKER_USER=dev
 WORKDIR /workspace
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["dockerd"]
