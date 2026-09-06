@@ -50,14 +50,14 @@ RUN apt-get update && \
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
+ARG USER_PASSWORD=test1234
 RUN if existing="$(getent passwd "$USER_UID" | cut -d: -f1)" && [ -n "$existing" ]; then \
       userdel --remove "$existing"; \
     fi && \
     groupadd --gid "$USER_GID" "$USERNAME" && \
     useradd --uid "$USER_UID" --gid "$USER_GID" --create-home --shell /bin/bash "$USERNAME" && \
-    usermod --append --groups docker "$USERNAME" && \
-    printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$USERNAME" > /etc/sudoers.d/"$USERNAME" && \
-    chmod 0440 /etc/sudoers.d/"$USERNAME"
+    usermod --append --groups docker,sudo "$USERNAME" && \
+    printf '%s:%s\n' "$USERNAME" "$USER_PASSWORD" | chpasswd
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
 

@@ -1,9 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+cd "$(dirname "$0")"
+
+if [ -f .env ]; then
+  set -a
+  . ./.env
+  set +a
+fi
+
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/ryaneggz/microsandbox-ubuntu-dind}"
-IMAGE_VERSION="${IMAGE_VERSION:-0.2.0}"
+IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 IMAGE="$IMAGE_REPO:$IMAGE_VERSION"
+
+SANDBOX_NAME="${SANDBOX_NAME:-prod}"
+CPUS="${CPUS:-4}"
+MAX_CPUS="${MAX_CPUS:-8}"
+MEMORY="${MEMORY:-8G}"
+MAX_MEMORY="${MAX_MEMORY:-16G}"
+ROOT_DISK="${ROOT_DISK:-12G}"
+DOCKER_DATA_VOLUME="${DOCKER_DATA_VOLUME:-prod-docker-data}"
+DOCKER_DATA_SIZE="${DOCKER_DATA_SIZE:-50G}"
+WORKDIR="${WORKDIR:-/home/dev}"
+MOUNT_DIRS="${MOUNT_DIRS:-/opt/infra-stack:/home/dev/infra-stack /opt/oh-deploy:/home/dev/oh-deploy /opt/langfuse:/home/dev/langfuse}"
+PORTS="${PORTS:-3000:3000 3005:3005}"
 
 if ! msb images | grep -q "$IMAGE_REPO.*$IMAGE_VERSION"; then
   if ! msb pull "$IMAGE"; then
@@ -15,23 +35,29 @@ if ! msb images | grep -q "$IMAGE_REPO.*$IMAGE_VERSION"; then
   fi
 fi
 
-msb run -d \
-  --replace \
-  --pull never \
-  --name prod \
-  --cpus 4 \
-  --max-cpus 8 \
-  --memory 8G \
-  --max-memory 16G \
-  --root-disk 12G \
-  --mount-dir /opt/infra-stack:/home/dev/infra-stack \
-  --mount-dir /opt/oh-deploy:/home/dev/oh-deploy \
-  --mount-dir /opt/langfuse:/home/dev/langfuse \
-  --mount-named prod-docker-data:/var/lib/docker:kind=disk,size=50G \
-  --workdir /home/dev \
-  -p 3000:3000 \
-  -p 3005:3005 \
-  "$IMAGE"
+args=(
+  run -d
+  --replace
+  --pull never
+  --name "$SANDBOX_NAME"
+  --cpus "$CPUS"
+  --max-cpus "$MAX_CPUS"
+  --memory "$MEMORY"
+  --max-memory "$MAX_MEMORY"
+  --root-disk "$ROOT_DISK"
+  --mount-named "$DOCKER_DATA_VOLUME:/var/lib/docker:kind=disk,size=$DOCKER_DATA_SIZE"
+  --workdir "$WORKDIR"
+)
+
+for mount in $MOUNT_DIRS; do
+  args+=(--mount-dir "$mount")
+done
+
+for port in $PORTS; do
+  args+=(-p "$port")
+done
+
+msb "${args[@]}" "$IMAGE"
 
 # -----------------------------------------------------------------------------
 # Attach

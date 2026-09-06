@@ -28,5 +28,7 @@ jobs:
           docker run --rm msb-ubuntu-dind:ci sh -c 'id -nG dev | tr " " "\n" | grep -qx docker'
           docker run --rm msb-ubuntu-dind:ci sh -c 'command -v telnet'
           docker run --rm msb-ubuntu-dind:ci sh -c 'command -v dockerd'
+          docker run --rm msb-ubuntu-dind:ci sh -c 'id -nG dev | tr " " "\n" | grep -qx sudo'
+          docker run --rm msb-ubuntu-dind:ci sh -c 'passwd -S dev | cut -d" " -f2 | grep -qx P'
           docker run --rm --user dev msb-ubuntu-dind:ci sh -c 'test "$(pwd)" = /home/dev'
           docker run --rm --user dev msb-ubuntu-dind:ci sh -c 'test "$(id -un)" = dev && stat -c %U . && touch ./ci-write-probe'
