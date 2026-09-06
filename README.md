@@ -5,23 +5,29 @@ Ships an unprivileged `dev` user (uid 1000) in the `docker` group, so `docker`
 needs no `sudo`.
 Precursor to how openharness-cloud provisions an Ubuntu MSB VM with DinD.
 
-## Pull from GHCR (no build)
+## Run
 
-Released images are published to `ghcr.io/ryaneggz/microsandbox-ubuntu-dind`.
+`prod.sh` fetches the published image if the local Microsandbox store does not
+have it, then starts the `prod` sandbox:
 
 ```sh
-# Pull a released version (or :latest, :0, :0.1).
-docker pull ghcr.io/ryaneggz/microsandbox-ubuntu-dind:0.1.0
-docker tag ghcr.io/ryaneggz/microsandbox-ubuntu-dind:0.1.0 prod-msb-ubuntu:26.04
-
-# Hand it to Microsandbox's image store.
-docker save -o prod-msb-ubuntu-26.04.tar prod-msb-ubuntu:26.04
-msb load --input prod-msb-ubuntu-26.04.tar
-rm prod-msb-ubuntu-26.04.tar
+bash prod.sh
 ```
 
-No authentication is needed once the package is public. Images are published for
-`linux/amd64` and `linux/arm64`.
+It prefers `msb pull`, and falls back to `docker pull` + `docker save` +
+`msb load` on Microsandbox versions that cannot pull from a registry. Override
+either half with environment variables:
+
+```sh
+# Pin a different released version.
+IMAGE_VERSION=0.1.0 bash prod.sh
+
+# Point at a locally built image instead (see "Build locally").
+IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash prod.sh
+```
+
+Images are published for `linux/amd64` and `linux/arm64` at
+`ghcr.io/ryaneggz/microsandbox-ubuntu-dind`.
 
 ## Releasing
 
@@ -39,30 +45,29 @@ A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 
 ## Build locally
 
+Only needed when changing the image itself:
+
 ```sh
 # Build the Ubuntu 26.04 DinD image.
-docker build -t prod-msb-ubuntu:26.04 .
+docker build -t msb-ubuntu-dind:dev .
 
 # Export the Docker image.
-docker save \
-  -o prod-msb-ubuntu-26.04.tar \
-  prod-msb-ubuntu:26.04
+docker save -o msb-ubuntu-dind.tar msb-ubuntu-dind:dev
 
 # Load it into Microsandbox's image store.
-msb load --input prod-msb-ubuntu-26.04.tar
+msb load --input msb-ubuntu-dind.tar
 
 # Confirm the image exists.
 msb images
 
 # Remove the intermediate archive.
-rm prod-msb-ubuntu-26.04.tar
+rm msb-ubuntu-dind.tar
 ```
 
-## Run
+Then run it:
 
 ```sh
-# Recreate prod.
-bash prod.sh
+IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash prod.sh
 ```
 
 ## Verify
@@ -132,6 +137,6 @@ msb exec prod -- su - dev
 
 - `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user.
 - `entrypoint.sh` — keeps `/home/dev` and its mount points owned by `dev`, then execs the command (`dockerd` by default).
-- `prod.sh` — `msb run` invocation plus commented lifecycle, resize, and monitoring recipes.
+- `prod.sh` — fetches the published image if needed, runs `msb run`, plus commented lifecycle, resize, and monitoring recipes.
 - `.github/workflows/release.yml` — tag-driven SemVer build and publish to GHCR.
 - `.github/workflows/ci.yml` — builds the image on every PR and push to `main`.

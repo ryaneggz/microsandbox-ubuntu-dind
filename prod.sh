@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+IMAGE_REPO="${IMAGE_REPO:-ghcr.io/ryaneggz/microsandbox-ubuntu-dind}"
+IMAGE_VERSION="${IMAGE_VERSION:-0.2.0}"
+IMAGE="$IMAGE_REPO:$IMAGE_VERSION"
+
+if ! msb images | grep -q "$IMAGE_REPO.*$IMAGE_VERSION"; then
+  if ! msb pull "$IMAGE"; then
+    tar="$(mktemp -t msb-image-XXXXXX.tar)"
+    trap 'rm -f "$tar"' EXIT
+    docker pull "$IMAGE"
+    docker save -o "$tar" "$IMAGE"
+    msb load --input "$tar"
+  fi
+fi
+
 msb run -d \
   --replace \
   --pull never \
@@ -17,7 +31,7 @@ msb run -d \
   --workdir /home/dev \
   -p 3000:3000 \
   -p 3005:3005 \
-  prod-msb-ubuntu:26.04
+  "$IMAGE"
 
 # -----------------------------------------------------------------------------
 # Attach
