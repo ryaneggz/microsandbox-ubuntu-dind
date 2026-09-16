@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
-# Install the host-side lifecycle for the `prod` msb sandbox.
+# Install the host-side lifecycle for an msb sandbox.
 #
-# Idempotent. Installs the systemd *user* unit, enables lingering so it starts
-# at boot without a login, and preflights the one prerequisite that silently
-# breaks everything: the user manager's `kvm` group membership.
+# Usage: ./install-host.sh [SANDBOX_NAME]
+# Name resolution: $1, then $SANDBOX_NAME, then SANDBOX_NAME in .env, then "sandbox".
+#
+# Idempotent. Installs the templated systemd *user* unit, enables lingering so
+# it starts at boot without a login, and preflights the one prerequisite that
+# silently breaks everything: the user manager's `kvm` group membership.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
-UNIT_SRC="$REPO/systemd/msb-prod.service"
+UNIT_SRC="$REPO/systemd/msb-sandbox@.service"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-UNIT_DST="$UNIT_DIR/msb-prod.service"
+UNIT_DST="$UNIT_DIR/msb-sandbox@.service"
 
 log()  { printf '[install-host] %s\n' "$*"; }
 fail() { printf '[install-host] ERROR: %s\n' "$*" >&2; exit 1; }
+
+resolve_name() {
+  local n="${1:-${SANDBOX_NAME:-}}"
+  if [ -z "$n" ] && [ -f "$REPO/.env" ]; then
+    n="$(awk -F= '/^SANDBOX_NAME=/{gsub(/["'"'"']/,"",$2); print $2}' "$REPO/.env" | tail -1)"
+  fi
+  printf '%s' "${n:-sandbox}"
+}
+
+SANDBOX="$(resolve_name "${1:-}")"
+UNIT="msb-sandbox@${SANDBOX}.service"
 
 # --- preflight: /dev/kvm reachable from a systemd user service ---------------
 # Supplementary groups are snapshotted when a process starts. If the user was
@@ -50,15 +64,16 @@ MSG
 }
 
 command -v systemctl >/dev/null || fail "systemctl not found"
-[ -f "$UNIT_SRC" ]   || fail "missing $UNIT_SRC"
-[ -x "$REPO/ensure-prod.sh" ] || fail "missing or non-executable $REPO/ensure-prod.sh"
-[ -f "$REPO/.env" ]  || log "WARNING: no .env; prod.sh will fall back to built-in defaults"
+[ -f "$UNIT_SRC" ] || fail "missing $UNIT_SRC"
+[ -x "$REPO/ensure-sandbox.sh" ] || fail "missing or non-executable $REPO/ensure-sandbox.sh"
+[ -f "$REPO/.env" ] || log "WARNING: no .env; sandbox.sh will use built-in defaults"
 
 id -nG | tr ' ' '\n' | grep -qx kvm || log "WARNING: $USER is not in the kvm group (getent group kvm)"
 
+log "sandbox: $SANDBOX"
 preflight_kvm
 
-log "installing unit -> $UNIT_DST"
+log "installing unit template -> $UNIT_DST"
 mkdir -p "$UNIT_DIR"
 install -m 0644 "$UNIT_SRC" "$UNIT_DST"
 
@@ -66,10 +81,10 @@ log "enabling linger for $USER (start at boot without login)"
 loginctl enable-linger "$USER"
 
 systemctl --user daemon-reload
-systemctl --user enable msb-prod.service
+systemctl --user enable "$UNIT"
 
-log "installed and enabled. Start it with:"
-log "  systemctl --user start msb-prod.service"
+log "installed and enabled $UNIT. Start it with:"
+log "  systemctl --user start $UNIT"
 log "Verify:"
-log "  systemctl --user status msb-prod.service"
-log "  msb ls && msb exec prod -- docker ps"
+log "  systemctl --user status $UNIT"
+log "  msb ls && msb exec $SANDBOX -- docker ps"

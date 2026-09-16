@@ -1,12 +1,13 @@
 [Unit]
-Description=microsandbox prod sandbox: ensure running + supervise dockerd
+Description=microsandbox %i: ensure running + supervise dockerd
 Documentation=https://docs.microsandbox.dev/sandboxes/commands
 StartLimitIntervalSec=600
 StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=%h/microsandbox-ubuntu-dind/ensure-prod.sh
+Environment=SANDBOX_NAME=%i
+ExecStart=%h/microsandbox-ubuntu-dind/ensure-sandbox.sh %i
 Restart=always
 RestartSec=30
 TimeoutStartSec=900
