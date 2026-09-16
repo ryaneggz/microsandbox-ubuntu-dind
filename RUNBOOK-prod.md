@@ -5,6 +5,10 @@ running the `oh-deploy` stack: gateway, web, cloudflared, postgres.
 
 ## Bring prod up by hand
 
+Only needed when the systemd unit is not running (it is the normal path - see
+"The systemd unit" below). Stop the unit first if it is active, or it will
+race you.
+
 ```sh
 msb start prod
 tmux new-session -d -s msb-prod-dockerd "$HOME/.microsandbox/bin/msb exec prod -- dockerd"
@@ -85,13 +89,20 @@ Source of truth: `systemd/msb-prod.service` in this repo, installed to
 `~/.config/systemd/user/` by `install-host.sh`. It runs `ensure-prod.sh`, which
 converges the sandbox and then supervises dockerd in the foreground.
 
-Currently **disabled** pending confirmation that the manager has the `kvm`
-group. Re-enable only after the check above passes:
+Verified working: after a host reboot on 2026-09-16 the unit brought the
+sandbox and dockerd up unattended on the first attempt (`NRestarts=0`), and
+all four containers self-started via `restart: always`.
+
+Enable and start it (install-host.sh already does this):
 
 ```sh
 systemctl --user enable --now msb-prod.service
 systemctl --user status msb-prod.service
 ```
+
+If the KVM preflight fails, the unit will loop and stop after
+`StartLimitBurst=5`. Fix the group problem first - do not work around it by
+recreating the sandbox.
 
 Unit settings that matter: `RestartSec=30` and `StartLimitBurst=5` so a broken
 sandbox fails loudly instead of hammering `msb start`; `KillMode=process` so
