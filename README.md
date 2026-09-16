@@ -14,7 +14,8 @@ have it, then starts the `prod` sandbox:
 
 ```sh
 cp .example.env .env   # optional; edit to taste
-bash prod.sh
+bash prod.sh           # create and boot the sandbox
+./install-host.sh      # make it survive restarts (see "Lifecycle")
 ```
 
 Every setting lives in `.example.env` — image, sandbox name, CPUs, memory,
@@ -33,6 +34,23 @@ Image fetching prefers `msb pull`, and falls back to `docker pull` +
 `docker save` + `msb load` on Microsandbox versions that cannot pull from a
 registry. Images are published for `linux/amd64` and `linux/arm64` at
 `ghcr.io/ryaneggz/msb-ubuntu-dind`.
+
+## Lifecycle
+
+`dockerd` is this image's `CMD`, and `msb start` is
+[boot-only by design](https://docs.microsandbox.dev/sandboxes/commands): it
+resumes the VM but never re-runs the image ENTRYPOINT/CMD. So after
+`msb stop` + `msb start`, or a host reboot, **the Docker daemon does not come
+back on its own.**
+
+`install-host.sh` installs a systemd user unit that converges the sandbox and
+supervises `dockerd`, so a reboot recovers unattended. It preflights one
+prerequisite that otherwise fails confusingly: a `systemd --user` manager that
+predates the account's `kvm` group membership cannot open `/dev/kvm`, and
+`msb start` then aborts with `SIGABRT` before the agent relay comes up.
+
+See [`RUNBOOK-prod.md`](RUNBOOK-prod.md) for the failure modes, manual
+bring-up, and resource/disk operations.
 
 ## Attach
 
@@ -154,9 +172,14 @@ A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 
 ## Files
 
-- `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user.
+- `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user; installs `daemon.json`.
 - `entrypoint.sh` — keeps `/home/dev` and its mount points owned by `dev`, then execs the command (`dockerd` by default).
 - `prod.sh` — fetches the published image if needed, then runs `msb run`; commented lifecycle, resize, and monitoring recipes follow.
 - `.example.env` — every setting `prod.sh` reads; copy to `.env`.
+- `daemon.json` — Docker daemon config baked into the image; enables `live-restore` so containers survive a `dockerd` restart.
+- `install-host.sh` — idempotent host setup: KVM preflight, then installs and enables the systemd user unit.
+- `ensure-prod.sh` — converges the sandbox (start if stopped, recreate only if missing) and supervises `dockerd`.
+- `systemd/msb-prod.service` — the unit template `install-host.sh` installs.
+- `RUNBOOK-prod.md` — operating the deployed sandbox: failure modes, sizing, disk reclaim.
 - `.github/workflows/release.yml` — tag-driven SemVer build and publish to GHCR.
 - `.github/workflows/ci.yml` — builds the image on every PR and push to `main`.
