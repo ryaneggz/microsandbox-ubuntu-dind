@@ -88,7 +88,7 @@ defaults to allow, and `infra` never initiates connections to the others.
 ```yaml
 services:
   postgres:
-    image: pgvector/pgvector:pg17-trixie
+    image: postgres:17
     container_name: infra-postgres
     restart: always
     environment:
@@ -108,7 +108,7 @@ services:
       start_period: 30s
 
   redis:
-    image: redis:8-trixie
+    image: redis:8-alpine
     container_name: infra-redis
     restart: always
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?}"]
@@ -129,8 +129,11 @@ volumes:
 ```
 
 Both services bind the guest's `0.0.0.0`, not the guest's loopback, or the
-published-port listener has nothing to forward to. The host side of each
-publish still binds `127.0.0.1` by default, which is what limits exposure.
+published-port listener has nothing to forward to. The host side of each publish
+still binds `127.0.0.1` by default, which is what limits exposure.
+
+Swap `postgres:17` for `pgvector/pgvector:pg17-trixie` if the shared database
+needs vector support; it is a drop-in with the same configuration.
 
 Bring it up inside the sandbox:
 
