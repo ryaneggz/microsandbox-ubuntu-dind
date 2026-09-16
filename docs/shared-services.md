@@ -40,15 +40,15 @@ published port -> provider guest:5432
 
 ## Worked example: `dev`, `prod`, and `infra`
 
-Three sandboxes on one host. `infra` runs Postgres and Redis. `dev` and `prod`
-each run an application that uses both, sharing one copy of each service
-instead of running their own.
+Three sandboxes on one host. `infra` runs Postgres, Redis, and MinIO. `dev` and
+`prod` each run an application that uses all three, sharing one copy of each
+service instead of running their own.
 
 ```
                      host 127.0.0.1
   dev sandbox   ─┐    :5432 ─┐
-                 ├──────────  ├─► infra sandbox: postgres, redis
-  prod sandbox  ─┘    :6379 ─┘
+                 │    :6379 ─┼─► infra sandbox: postgres, redis, minio
+  prod sandbox  ─┘    :9000 ─┘
 ```
 
 Only `infra` publishes ports. `dev` and `prod` publish nothing for this to
@@ -62,9 +62,15 @@ All sandboxes share one host port namespace, so decide it once.
 | --- | --- | --- |
 | `5432` | Postgres | `infra` |
 | `6379` | Redis | `infra` |
+| `9000` | MinIO S3 API | `infra` |
+| `9001` | MinIO console | `infra` |
 
 If `dev` and `prod` also publish their own application ports, those must not
 collide with each other or with the table above.
+
+The MinIO console is for you, not for the applications. Consumers are granted
+`9000` only. Reach the console from the host itself, or forward `9001` over SSH;
+it is bound to host loopback and is not otherwise exposed.
 
 ### `infra` — the provider
 
@@ -77,7 +83,7 @@ MAX_MEMORY=4G
 DOCKER_DATA_VOLUME=infra-docker-data
 DOCKER_DATA_SIZE=30G
 MOUNT_DIRS="/opt/infra-services:/home/dev/infra-services"
-PORTS="5432:5432 6379:6379"
+PORTS="5432:5432 6379:6379 9000:9000 9001:9001"
 ```
 
 No `EXTRA_ARGS`. A provider needs no rules: inbound policy on a published port
@@ -123,9 +129,30 @@ services:
       retries: 10
       start_period: 10s
 
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: infra-minio
+    restart: always
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    ports:
+      - "0.0.0.0:9000:9000"
+      - "0.0.0.0:9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
 volumes:
   postgres-data:
   redis-data:
+  minio-data:
 ```
 
 Both services bind the guest's `0.0.0.0`, not the guest's loopback, or the
@@ -134,6 +161,10 @@ still binds `127.0.0.1` by default, which is what limits exposure.
 
 Swap `postgres:17` for `pgvector/pgvector:pg17-trixie` if the shared database
 needs vector support; it is a drop-in with the same configuration.
+
+MinIO is pinned to a dated `RELEASE.` tag because that is how it is versioned;
+there is no rolling major tag to track. Check for a newer release when you set
+this up.
 
 Bring it up inside the sandbox:
 
@@ -148,13 +179,13 @@ Identical except for name and what they connect to:
 ```sh
 SANDBOX_NAME=dev
 MOUNT_DIRS="/opt/dev-app:/home/dev/app"
-EXTRA_ARGS="--net-rule allow@host:tcp:5432,allow@host:tcp:6379"
+EXTRA_ARGS="--net-rule allow@host:tcp:5432,allow@host:tcp:6379,allow@host:tcp:9000"
 ```
 
 ```sh
 SANDBOX_NAME=prod
 MOUNT_DIRS="/opt/prod-app:/home/dev/app"
-EXTRA_ARGS="--net-rule allow@host:tcp:5432,allow@host:tcp:6379"
+EXTRA_ARGS="--net-rule allow@host:tcp:5432,allow@host:tcp:6379,allow@host:tcp:9000"
 ```
 
 One `--net-rule` carries a comma-separated list, so two services need one flag.
@@ -171,6 +202,11 @@ services:
     environment:
       DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@host.microsandbox.internal:5432/${DB_NAME}
       REDIS_URL: redis://:${REDIS_PASSWORD}@host.microsandbox.internal:6379/${REDIS_DB}
+      S3_ENDPOINT: http://host.microsandbox.internal:9000
+      S3_BUCKET: ${S3_BUCKET}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_FORCE_PATH_STYLE: "true"
 ```
 
 No `extra_hosts` and no gateway address. The container resolves the name
@@ -189,26 +225,60 @@ psql -U postgres -c "grant all on database appdb_dev  to app_dev"
 psql -U postgres -c "grant all on database appdb_prod to app_prod"
 ```
 
-| Environment | `DB_NAME` | `DB_USER` | `REDIS_DB` |
-| --- | --- | --- | --- |
-| `dev` | `appdb_dev` | `app_dev` | `0` |
-| `prod` | `appdb_prod` | `app_prod` | `1` |
+```sh
+# In infra's minio, once. Each environment gets its own bucket and key pair.
+mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
 
-Distinct Postgres roles mean a mistake in `dev` cannot reach `prod` data.
+for env in dev prod; do
+  secret="$(openssl rand -base64 24)"
+  echo "app_$env secret key: $secret"   # record this; it is the app's S3_SECRET_KEY
+
+  mc mb --ignore-existing "local/app-$env"
+  mc admin user add local "app_$env" "$secret"
+
+  cat > "/tmp/app-$env-rw.json" <<JSON
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["s3:*"],
+    "Resource": ["arn:aws:s3:::app-$env", "arn:aws:s3:::app-$env/*"]
+  }]
+}
+JSON
+
+  mc admin policy create local "app-$env-rw" "/tmp/app-$env-rw.json"
+  mc admin policy attach local "app-$env-rw" --user "app_$env"
+done
+```
+
+`mc` ships inside the MinIO image, so run that block with
+`docker exec -it infra-minio sh` rather than installing a client.
+
+| Environment | `DB_NAME` | `DB_USER` | `REDIS_DB` | `S3_BUCKET` | `S3_ACCESS_KEY` |
+| --- | --- | --- | --- | --- | --- |
+| `dev` | `appdb_dev` | `app_dev` | `0` | `app-dev` | `app_dev` |
+| `prod` | `appdb_prod` | `app_prod` | `1` | `app-prod` | `app_prod` |
+
+Distinct Postgres roles and distinct MinIO users scoped to one bucket each mean
+a mistake in `dev` cannot reach `prod` data. Never hand an application the MinIO
+root credentials; they carry access to every bucket.
+
 Redis numbered databases are a weaker boundary — they share one instance,
 one password, and `FLUSHALL` crosses them — so use separate Redis ACL users,
 or a second Redis on another port, if that matters.
 
 ### What each sandbox can reach
 
-| | Postgres `5432` | Redis `6379` | Other host ports | The other sandboxes |
-| --- | --- | --- | --- | --- |
-| `infra` | serves it | serves it | denied | no |
-| `dev` | allowed | allowed | denied | no |
-| `prod` | allowed | allowed | denied | no |
+| | Postgres `5432` | Redis `6379` | MinIO `9000` | MinIO console `9001` | Other host ports | The other sandboxes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `infra` | serves it | serves it | serves it | serves it | denied | no |
+| `dev` | allowed | allowed | allowed | denied | denied | no |
+| `prod` | allowed | allowed | allowed | denied | denied | no |
 
 No sandbox can reach another directly. `dev` cannot reach `prod`, and neither
-can reach anything on the host beyond those two ports.
+can reach anything on the host beyond those three ports — including the MinIO
+console, which is deliberately left out of the consumer rules.
 
 ### Verifying the example
 
@@ -221,6 +291,13 @@ psql -h host.microsandbox.internal -p 5432 -U app_dev -d appdb_dev \
 
 # Redis: expect PONG.
 redis-cli -h host.microsandbox.internal -p 6379 -a "$REDIS_PASSWORD" ping
+
+# MinIO: expect a 200 from the health endpoint.
+curl -s -o /dev/null -w "%{http_code}\n" -m 5 \
+  http://host.microsandbox.internal:9000/minio/health/live
+
+# Control: the console port was not granted, so it must be refused.
+curl -s -m 5 http://host.microsandbox.internal:9001/ ; echo "exit=$?"
 
 # Control: a host port that was not granted must be refused.
 curl -s -m 5 http://host.microsandbox.internal:5433/ ; echo "exit=$?"
