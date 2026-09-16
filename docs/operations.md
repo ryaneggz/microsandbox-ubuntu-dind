@@ -1,4 +1,4 @@
-# Sandbox runbook
+# Sandbox operations
 
 Operating a sandbox created by `sandbox.sh`. Substitute your own
 `SANDBOX_NAME` for `<name>` throughout; it is whatever `.env` sets.
@@ -157,3 +157,10 @@ space freed inside the guest is not returned to the host. Reclaim it offline:
 4. `msb start <name>`
 
 Stop the containers first so nothing is writing during the zero-fill.
+
+## Shared services
+
+Running a service in one sandbox and consuming it from others on the same host
+is an optional pattern, not part of the core lifecycle. Sandboxes cannot address
+each other directly; access goes through a published host port. See
+[shared-services.md](shared-services.md).

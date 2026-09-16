@@ -24,6 +24,7 @@ DOCKER_DATA_SIZE="${DOCKER_DATA_SIZE:-50G}"
 WORKDIR="${WORKDIR:-/home/dev}"
 MOUNT_DIRS="${MOUNT_DIRS:-}"
 PORTS="${PORTS:-}"
+EXTRA_ARGS="${EXTRA_ARGS:-}"
 
 if ! msb images | grep -q "$IMAGE_REPO.*$IMAGE_VERSION"; then
   if ! msb pull "$IMAGE"; then
@@ -56,6 +57,9 @@ done
 for port in $PORTS; do
   args+=(-p "$port")
 done
+
+# shellcheck disable=SC2206
+args+=($EXTRA_ARGS)
 
 msb "${args[@]}" "$IMAGE"
 

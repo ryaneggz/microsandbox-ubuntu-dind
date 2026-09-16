@@ -50,7 +50,7 @@ prerequisite that otherwise fails confusingly: a `systemd --user` manager that
 predates the account's `kvm` group membership cannot open `/dev/kvm`, and
 `msb start` then aborts with `SIGABRT` before the agent relay comes up.
 
-See [`RUNBOOK.md`](RUNBOOK.md) for the failure modes, manual
+See [`docs/operations.md`](docs/operations.md) for the failure modes, manual
 bring-up, and resource/disk operations.
 
 ## Attach
@@ -171,6 +171,11 @@ git push origin v0.4.0
 A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 `workflow_dispatch` accepts a version if you need to re-run one by hand.
 
+## Documentation
+
+- [docs/operations.md](docs/operations.md) — day-to-day operation: bring-up, the systemd unit, sizing, disk reclaim.
+- [docs/shared-services.md](docs/shared-services.md) — optional: sharing a service between sandboxes.
+
 ## Files
 
 - `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user; installs `daemon.json`.
@@ -181,6 +186,6 @@ A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 - `install-host.sh` — idempotent host setup: KVM preflight, then installs and enables the systemd user unit.
 - `ensure-sandbox.sh` — converges the sandbox (start if stopped, recreate only if missing) and supervises `dockerd`.
 - `systemd/msb-sandbox@.service` — templated systemd user unit (one instance per sandbox) that `install-host.sh` installs.
-- `RUNBOOK.md` — operating a sandbox: failure modes, sizing, restart policy, disk reclaim.
+- `docs/` — operating guides; `operations.md` for day-to-day operation, `shared-services.md` for cross-sandbox service access.
 - `.github/workflows/release.yml` — tag-driven SemVer build and publish to GHCR.
 - `.github/workflows/ci.yml` — builds the image on every PR and push to `main`.
