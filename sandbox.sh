@@ -13,17 +13,17 @@ IMAGE_REPO="${IMAGE_REPO:-ghcr.io/ryaneggz/msb-ubuntu-dind}"
 IMAGE_VERSION="${IMAGE_VERSION:-latest}"
 IMAGE="$IMAGE_REPO:$IMAGE_VERSION"
 
-SANDBOX_NAME="${SANDBOX_NAME:-prod}"
+SANDBOX_NAME="${SANDBOX_NAME:-sandbox}"
 CPUS="${CPUS:-4}"
 MAX_CPUS="${MAX_CPUS:-8}"
 MEMORY="${MEMORY:-8G}"
 MAX_MEMORY="${MAX_MEMORY:-16G}"
 ROOT_DISK="${ROOT_DISK:-12G}"
-DOCKER_DATA_VOLUME="${DOCKER_DATA_VOLUME:-prod-docker-data}"
+DOCKER_DATA_VOLUME="${DOCKER_DATA_VOLUME:-${SANDBOX_NAME}-docker-data}"
 DOCKER_DATA_SIZE="${DOCKER_DATA_SIZE:-50G}"
 WORKDIR="${WORKDIR:-/home/dev}"
-MOUNT_DIRS="${MOUNT_DIRS:-/opt/infra-stack:/home/dev/infra-stack /opt/oh-deploy:/home/dev/oh-deploy /opt/langfuse:/home/dev/langfuse}"
-PORTS="${PORTS:-3000:3000 3005:3005}"
+MOUNT_DIRS="${MOUNT_DIRS:-}"
+PORTS="${PORTS:-}"
 
 if ! msb images | grep -q "$IMAGE_REPO.*$IMAGE_VERSION"; then
   if ! msb pull "$IMAGE"; then
@@ -62,25 +62,25 @@ msb "${args[@]}" "$IMAGE"
 # -----------------------------------------------------------------------------
 # Attach
 # -----------------------------------------------------------------------------
-# msb exec -t prod -- sh
+# msb exec -t "$SANDBOX_NAME" -- sh
 
 # -----------------------------------------------------------------------------
 # Resource changes
 # -----------------------------------------------------------------------------
 
 # Increase RAM live, up to the current 16G ceiling.
-# msb modify prod --memory 12G
-# msb modify prod --memory 16G
+# msb modify "$SANDBOX_NAME" --memory 12G
+# msb modify "$SANDBOX_NAME" --memory 16G
 
 # Reduce RAM.
-# msb modify prod --memory 8G
+# msb modify "$SANDBOX_NAME" --memory 8G
 
 # Increase CPUs live, up to the current 8 CPU ceiling.
-# msb modify prod --cpus 6
-# msb modify prod --cpus 8
+# msb modify "$SANDBOX_NAME" --cpus 6
+# msb modify "$SANDBOX_NAME" --cpus 8
 
 # Reduce CPUs.
-# msb modify prod --cpus 4
+# msb modify "$SANDBOX_NAME" --cpus 4
 
 
 # -----------------------------------------------------------------------------
@@ -89,19 +89,19 @@ msb "${args[@]}" "$IMAGE"
 # -----------------------------------------------------------------------------
 
 # Increase RAM ceiling and active RAM together.
-# msb modify prod --max-memory 24G --memory 24G --restart
+# msb modify "$SANDBOX_NAME" --max-memory 24G --memory 24G --restart
 
 # Increase CPU ceiling and active CPUs together.
-# msb modify prod --max-cpus 12 --cpus 12 --restart
+# msb modify "$SANDBOX_NAME" --max-cpus 12 --cpus 12 --restart
 
 
 # -----------------------------------------------------------------------------
 # Lifecycle
 # -----------------------------------------------------------------------------
 
-# msb stop prod
-# msb start prod
-# msb restart prod
+# msb stop "$SANDBOX_NAME"
+# msb start "$SANDBOX_NAME"
+# msb restart "$SANDBOX_NAME"
 
 
 # -----------------------------------------------------------------------------
@@ -109,8 +109,8 @@ msb "${args[@]}" "$IMAGE"
 # -----------------------------------------------------------------------------
 
 # msb ls
-# msb metrics prod
-# msb metrics prod --watch
+# msb metrics "$SANDBOX_NAME"
+# msb metrics "$SANDBOX_NAME" --watch
 
 # msb volume ls
-# msb volume inspect prod-docker-data
+# msb volume inspect "$SANDBOX_NAME"-docker-data

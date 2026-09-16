@@ -2,32 +2,32 @@
 
 Published as `ghcr.io/ryaneggz/msb-ubuntu-dind`.
 
-Ubuntu 26.04 Microsandbox image with Docker-in-Docker, plus a `prod.sh` launcher.
+Ubuntu 26.04 Microsandbox image with Docker-in-Docker, plus a `sandbox.sh` launcher.
 Ships an unprivileged `dev` user (uid 1000) in the `docker` group, so `docker`
 needs no `sudo`.
 Precursor to how openharness-cloud provisions an Ubuntu MSB VM with DinD.
 
 ## Run
 
-`prod.sh` fetches the published image if the local Microsandbox store does not
-have it, then starts the `prod` sandbox:
+`sandbox.sh` fetches the published image if the local Microsandbox store does not
+have it, then creates the sandbox named by `SANDBOX_NAME`:
 
 ```sh
 cp .example.env .env   # optional; edit to taste
-bash prod.sh           # create and boot the sandbox
+bash sandbox.sh           # create and boot the sandbox
 ./install-host.sh      # make it survive restarts (see "Lifecycle")
 ```
 
 Every setting lives in `.example.env` — image, sandbox name, CPUs, memory,
-disks, mounts, ports. `prod.sh` sources `.env` when present, and the same names
+disks, mounts, ports. `sandbox.sh` sources `.env` when present, and the same names
 work as plain environment variables. `IMAGE_VERSION` defaults to `latest`.
 
 ```sh
 # Pin a released version instead of latest.
-IMAGE_VERSION=0.2.0 bash prod.sh
+IMAGE_VERSION=0.2.0 bash sandbox.sh
 
 # Point at a locally built image instead (see "Build locally").
-IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash prod.sh
+IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash sandbox.sh
 ```
 
 Image fetching prefers `msb pull`, and falls back to `docker pull` +
@@ -43,13 +43,14 @@ resumes the VM but never re-runs the image ENTRYPOINT/CMD. So after
 `msb stop` + `msb start`, or a host reboot, **the Docker daemon does not come
 back on its own.**
 
-`install-host.sh` installs a systemd user unit that converges the sandbox and
-supervises `dockerd`, so a reboot recovers unattended. It preflights one
+`install-host.sh` installs a templated systemd user unit
+(`msb-sandbox@<name>.service`, one instance per sandbox) that converges the
+sandbox and supervises `dockerd`, so a reboot recovers unattended. It preflights one
 prerequisite that otherwise fails confusingly: a `systemd --user` manager that
 predates the account's `kvm` group membership cannot open `/dev/kvm`, and
 `msb start` then aborts with `SIGABRT` before the agent relay comes up.
 
-See [`RUNBOOK-prod.md`](RUNBOOK-prod.md) for the failure modes, manual
+See [`RUNBOOK.md`](RUNBOOK.md) for the failure modes, manual
 bring-up, and resource/disk operations.
 
 ## Attach
@@ -57,36 +58,36 @@ bring-up, and resource/disk operations.
 Get an interactive shell as `dev`, in `/home/dev`, with Docker ready:
 
 ```sh
-msb exec -t prod -- su - dev
+msb exec -t <name> -- su - dev
 ```
 
 Run a single command the same way:
 
 ```sh
-msb exec -t prod -- su - dev -c 'docker ps'
+msb exec -t <name> -- su - dev -c 'docker ps'
 ```
 
-`msb exec -t prod -- sh` gives you a root shell instead — useful for recovery,
+`msb exec -t <name> -- sh` gives you a root shell instead — useful for recovery,
 not for daily work.
 
 ## Verify
 
 ```sh
 # Confirm Ubuntu 26.04.
-msb exec prod -- cat /etc/os-release
+msb exec <name> -- cat /etc/os-release
 
 # Confirm the Docker daemon is running.
-msb exec prod -- docker info
+msb exec <name> -- docker info
 
 # Confirm Compose.
-msb exec prod -- docker compose version
+msb exec <name> -- docker compose version
 
 # Confirm the unprivileged user reaches Docker without sudo.
-msb exec prod -- su - dev -c 'docker info'
+msb exec <name> -- su - dev -c 'docker info'
 
 # Important: validate actual nested container execution,
 # not merely that the Docker daemon started.
-msb exec prod -- su - dev -c 'docker run --rm hello-world'
+msb exec <name> -- su - dev -c 'docker run --rm hello-world'
 ```
 
 ## Users and privileges
@@ -107,14 +108,14 @@ unprivileged user has — but nothing you do inside the sandbox has to:
 ## SSH access
 
 Microsandbox can serve SSH for a sandbox over stdio, so a workstation can reach
-`prod` through the host that runs it. Add an entry like this to `~/.ssh/config`:
+a sandbox through the host that runs it. Add an entry like this to `~/.ssh/config`:
 
 ```sshconfig
-Host prod-msb
+Host my-sandbox
     User dev
     IdentityFile ~/.ssh/<your-key>
     IdentitiesOnly yes
-    ProxyCommand ssh <your-msb-host> /home/<user>/.local/bin/msb ssh serve prod --stdio
+    ProxyCommand ssh <your-msb-host> /home/<user>/.local/bin/msb ssh serve <name> --stdio
 ```
 
 - `<your-msb-host>` is an existing `Host` entry for the machine running `msb`.
@@ -126,7 +127,7 @@ Host prod-msb
 Test the route from your workstation after the sandbox is running:
 
 ```sh
-ssh prod-msb
+ssh my-sandbox
 ```
 
 ## Build locally
@@ -153,7 +154,7 @@ rm msb-ubuntu-dind.tar
 Then run it:
 
 ```sh
-IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash prod.sh
+IMAGE_REPO=msb-ubuntu-dind IMAGE_VERSION=dev bash sandbox.sh
 ```
 
 ## Releasing
@@ -174,12 +175,12 @@ A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 
 - `Dockerfile` — Ubuntu 26.04 base with Docker Engine, Compose, Buildx, telnet, and the `dev` user; installs `daemon.json`.
 - `entrypoint.sh` — keeps `/home/dev` and its mount points owned by `dev`, then execs the command (`dockerd` by default).
-- `prod.sh` — fetches the published image if needed, then runs `msb run`; commented lifecycle, resize, and monitoring recipes follow.
-- `.example.env` — every setting `prod.sh` reads; copy to `.env`.
+- `sandbox.sh` — fetches the published image if needed, then runs `msb run`; commented lifecycle, resize, and monitoring recipes follow.
+- `.example.env` — every setting `sandbox.sh` reads; copy to `.env`.
 - `daemon.json` — Docker daemon config baked into the image; enables `live-restore` so containers survive a `dockerd` restart.
 - `install-host.sh` — idempotent host setup: KVM preflight, then installs and enables the systemd user unit.
-- `ensure-prod.sh` — converges the sandbox (start if stopped, recreate only if missing) and supervises `dockerd`.
-- `systemd/msb-prod.service` — the unit template `install-host.sh` installs.
-- `RUNBOOK-prod.md` — operating the deployed sandbox: failure modes, sizing, disk reclaim.
+- `ensure-sandbox.sh` — converges the sandbox (start if stopped, recreate only if missing) and supervises `dockerd`.
+- `systemd/msb-sandbox@.service` — templated systemd user unit (one instance per sandbox) that `install-host.sh` installs.
+- `RUNBOOK.md` — operating a sandbox: failure modes, sizing, restart policy, disk reclaim.
 - `.github/workflows/release.yml` — tag-driven SemVer build and publish to GHCR.
 - `.github/workflows/ci.yml` — builds the image on every PR and push to `main`.
