@@ -59,6 +59,10 @@ RUN if existing="$(getent passwd "$USER_UID" | cut -d: -f1)" && [ -n "$existing"
     usermod --append --groups docker,sudo "$USERNAME" && \
     printf '%s:%s\n' "$USERNAME" "$USER_PASSWORD" | chpasswd
 
+# live-restore keeps containers running across a dockerd restart. Baked into
+# the image so recreating the sandbox cannot silently lose it.
+COPY daemon.json /etc/docker/daemon.json
+
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV DOCKER_USER=dev
