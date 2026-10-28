@@ -182,6 +182,7 @@ A `-rc.1`-style prerelease tag skips `latest` and is marked as a prerelease.
 - `entrypoint.sh` — keeps `/home/dev` and its mount points owned by `dev`, then execs the command (`dockerd` by default).
 - `sandbox.sh` — fetches the published image if needed, then runs `msb run`; commented lifecycle, resize, and monitoring recipes follow.
 - `.example.env` — every setting `sandbox.sh` reads; copy to `.env`.
+- `<name>.sh` (`infra.sh`, `dev.sh`) — per-sandbox launchers that set one sandbox's settings and exec `sandbox.sh`; `ensure-sandbox.sh` prefers them when recreating.
 - `daemon.json` — Docker daemon config baked into the image; enables `live-restore` so containers survive a `dockerd` restart.
 - `install-host.sh` — idempotent host setup: KVM preflight, then installs and enables the systemd user unit.
 - `ensure-sandbox.sh` — converges the sandbox (start if stopped, recreate only if missing) and supervises `dockerd`.

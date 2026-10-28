@@ -11,7 +11,7 @@
 # Guard policy, deliberately conservative:
 #   running  -> leave alone
 #   stopped  -> msb start          (NON-destructive; preserves the root disk)
-#   missing  -> sandbox.sh         (recreate; ONLY when there is nothing to lose)
+#   missing  -> <name>.sh, else sandbox.sh (recreate; ONLY when there is nothing to lose)
 # A stopped sandbox is never recreated: that would discard anything written to
 # the root disk that is not on a mount or a named volume.
 #
@@ -97,10 +97,12 @@ converge_sandbox() {
   st="$(sandbox_status)"
   case "$st" in
     running) log "running" ;;
-    stopped) log "stopped; starting (non-destructive)"; start_with_retry || return 1 ;;
-    "")      log "MISSING; recreating via sandbox.sh"
-             ( cd "$REPO" && SANDBOX_NAME="$SANDBOX" ./sandbox.sh ) \
-               || { log "sandbox.sh failed"; return 1; } ;;
+    stopped|crashed) log "$st; starting (non-destructive)"; start_with_retry || return 1 ;;
+    "")      local launcher="./sandbox.sh"
+             [ -x "$REPO/$SANDBOX.sh" ] && launcher="./$SANDBOX.sh"
+             log "MISSING; recreating via $launcher"
+             ( cd "$REPO" && SANDBOX_NAME="$SANDBOX" "$launcher" ) \
+               || { log "$launcher failed"; return 1; } ;;
     draining|starting|stopping)
              log "transient state '$st'; waiting to settle"
              wait_for_settled || return 1
