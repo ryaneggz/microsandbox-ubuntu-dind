@@ -97,7 +97,7 @@ converge_sandbox() {
   st="$(sandbox_status)"
   case "$st" in
     running) log "running" ;;
-    stopped) log "stopped; starting (non-destructive)"; start_with_retry || return 1 ;;
+    stopped|crashed) log "$st; starting (non-destructive)"; start_with_retry || return 1 ;;
     "")      local launcher="./sandbox.sh"
              [ -x "$REPO/$SANDBOX.sh" ] && launcher="./$SANDBOX.sh"
              log "MISSING; recreating via $launcher"

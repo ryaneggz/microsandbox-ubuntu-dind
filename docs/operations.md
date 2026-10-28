@@ -111,7 +111,7 @@ systemd does not kill the VM along with the script.
 | sandbox state | action                                  |
 |---------------|-----------------------------------------|
 | running       | leave alone                             |
-| stopped       | `msb start` (non-destructive)           |
+| stopped, crashed | `msb start` (non-destructive)        |
 | draining etc. | wait for the transient state to settle  |
 | missing       | `<name>.sh` recreate if present, else `sandbox.sh` (nothing to lose) |
 
