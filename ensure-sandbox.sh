@@ -118,6 +118,14 @@ flock 9 || { log "could not acquire lock"; exit 1; }
 
 converge_sandbox || exit 1
 
+# Per-sandbox converge step: <name>.converge.sh runs after the sandbox is up and
+# before dockerd, for root-disk state a recreate would lose.
+if [ -x "$REPO/$SANDBOX.converge.sh" ]; then
+  SANDBOX_NAME="$SANDBOX" MSB="$MSB" "$REPO/$SANDBOX.converge.sh" \
+    || { log "$SANDBOX.converge.sh failed"; exit 1; }
+  log "$SANDBOX.converge.sh done"
+fi
+
 if dockerd_running; then
   log "dockerd already running; monitoring"
   while dockerd_running; do sleep 15; done

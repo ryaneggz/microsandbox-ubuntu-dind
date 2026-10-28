@@ -115,6 +115,10 @@ systemd does not kill the VM along with the script.
 | draining etc. | wait for the transient state to settle  |
 | missing       | `<name>.sh` recreate if present, else `sandbox.sh` (nothing to lose) |
 
+After converging, it runs `<name>.converge.sh` when present (for example
+`prod.converge.sh`, which restores the management key onto the root disk),
+then starts dockerd. A failing converge step stops the unit before dockerd.
+
 It retries `msb start` internally with backoff under a `flock`, because msb
 aborts with SIGABRT if it races a teardown still in flight. Do not move the
 retry loop into systemd: rapid restarts race each other.
