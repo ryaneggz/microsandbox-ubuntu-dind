@@ -91,8 +91,9 @@ systemctl --user enable --now msb-sandbox@<name>.service
 systemctl --user status msb-sandbox@<name>.service
 ```
 
-It runs `ensure-sandbox.sh <name>`, which converges the sandbox and then
-supervises dockerd in the foreground.
+It runs `ensure-sandbox.sh <name>` from this checkout (`install-host.sh` writes
+the checkout path into the installed unit), which converges the sandbox and
+then supervises dockerd in the foreground.
 
 Verified: after a host reboot the unit brought sandbox and dockerd up
 unattended on the first attempt (`NRestarts=0`).
@@ -112,7 +113,7 @@ systemd does not kill the VM along with the script.
 | running       | leave alone                             |
 | stopped       | `msb start` (non-destructive)           |
 | draining etc. | wait for the transient state to settle  |
-| missing       | `sandbox.sh` recreate (nothing to lose) |
+| missing       | `<name>.sh` recreate if present, else `sandbox.sh` (nothing to lose) |
 
 It retries `msb start` internally with backoff under a `flock`, because msb
 aborts with SIGABRT if it races a teardown still in flight. Do not move the

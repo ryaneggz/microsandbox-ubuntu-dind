@@ -75,7 +75,8 @@ preflight_kvm
 
 log "installing unit template -> $UNIT_DST"
 mkdir -p "$UNIT_DIR"
-install -m 0644 "$UNIT_SRC" "$UNIT_DST"
+sed "s|%h/microsandbox-ubuntu-dind|$REPO|g" "$UNIT_SRC" > "$UNIT_DST"
+chmod 0644 "$UNIT_DST"
 
 log "enabling linger for $USER (start at boot without login)"
 loginctl enable-linger "$USER"
